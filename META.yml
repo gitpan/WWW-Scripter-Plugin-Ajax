@@ -1,0 +1,42 @@
+--- #YAML:1.0
+name:               WWW-Scripter-Plugin-Ajax
+version:            0.01
+abstract:           WWW::Scripter plugin that provides the XMLHttpRequest object
+author:
+    - Father Chrysostomos <sprout & cpan . org>
+license:            unknown
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
+requires:
+    constant:             1.03
+    constant::lexical:    0
+    Encode:               2.09
+    HTML::DOM::Event:     0
+    HTML::DOM::Exception:  0.013
+    HTML::DOM::Interface:  0
+    HTTP::Cookies:        0
+    HTTP::Headers:        0
+    HTTP::Headers::Util:  0
+    HTTP::Request:        0
+    HTTP::Response:       0
+    lib:                  0
+    LWP::Protocol:        0
+    Scalar::Util:         1.09
+    strict:               0
+    Test::More:           0
+    URI:                  1
+    URI::Escape:          0
+    utf8:                 0
+    warnings:             0
+    WWW::Scripter:        0
+    WWW::Scripter::Plugin::JavaScript:  0
+    XML::DOM::Lite:       0
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.48
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4
