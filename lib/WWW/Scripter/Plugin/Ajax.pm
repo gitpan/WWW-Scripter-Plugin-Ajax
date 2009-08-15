@@ -7,7 +7,7 @@ use Scalar::Util 'weaken';
 
 use warnings; no warnings 'utf8';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub init {
 	my($pack,$mech) = (shift,shift);
@@ -60,8 +60,6 @@ sub options {
 }
 
 package WWW::Scripter::Plugin::Ajax::XMLHttpRequest;
-
-our $VERSION = '0.05';
 
 use Encode 2.09 'decode';
 use Scalar::Util 1.09 qw 'weaken blessed refaddr';
@@ -202,9 +200,10 @@ sub send{
 	my ($self, $data) = @_;
 	my $clone = $self->[clone] ||=
 		bless $self->[mech]->clone, 'LWP::UserAgent';
-		# ~~~ This doesn’t allow for plugins that cache, etc.
-		#     What’s the best way to circumvent the DOM plugin,
-		#     Mech’s odd method of dealing with credentials, etc.?
+		# ~~~ This doesn’t allow for Scripter subclasses that
+		#     cache, etc. What’s the best way to circumvent
+		#     Scripter’s DOM parsing, Mech’s global credentials,
+		#     etc.?
 #	$clone->stack_depth(1);
 #	$clone->plugin('DOM')->scripts_enabled(0);
 	my $headers = new HTTP::Headers @{$self->[headers]||[]};
@@ -427,8 +426,6 @@ package WWW::Scripter::Plugin::Ajax::Cookies;
 require HTTP::Cookies;
 @ISA = HTTP::Cookies;
 
-our $VERSION = '0.05';
-
 # We have to override this to make sure that add_cookie_header doesn’t
 # clobber any fake cookies.
 
@@ -468,7 +465,7 @@ WWW::Scripter::Plugin::Ajax - WWW::Scripter plugin that provides the XMLHttpRequ
 
 =head1 VERSION
 
-Version 0.05 (alpha)
+Version 0.02 (alpha)
 
 =head1 SYNOPSIS
 
@@ -485,9 +482,8 @@ plugin (L<WWW::Scripter::Plugin::JavaScript>) and provides it with the
 C<XMLHttpRequest> object.
 
 To load the plugin, use L<WWW::Scripter>'s C<use_plugin> method, as shown
-in the Synopsis. (The
-current stable release of W:M doesn't support it; see L</PREREQUISITES>,
-below.) Any extra arguments to C<use_plugin> will be passed on to the
+in the Synopsis. Any extra arguments to C<use_plugin> will be passed on to 
+the
 JavaScript plugin (at least for now).
 
 =head1 ASYNCHRONY
@@ -545,12 +541,7 @@ This plugin requires perl 5.8.3 or higher, and the following modules:
 
 =item *
 
-WWW::Scripter::Plugin::JavaScript version 0.004 or
-later
-
-=item *
-
-WWW::Scripter::Plugin::DOM version 0.005 or
+WWW::Scripter::Plugin::JavaScript version 0.002 or
 later
 
 =item *
@@ -601,7 +592,7 @@ unfortunately the standard so I can't do anything about it.
 
 =head1 AUTHOR & COPYRIGHT
 
-Copyright (C) 2008 Father Chrysostomos
+Copyright (C) 2008-9 Father Chrysostomos
 <C<< ['sprout', ['org', 'cpan'].reverse().join('.')].join('@') >>E<gt>
 
 This program is free software; you may redistribute it and/or modify

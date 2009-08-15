@@ -29,6 +29,7 @@ use ExtUtils::MakeMaker;
 	utf8 => 0,
 	warnings => 0,
 	WWW::Scripter => 0,
+        WWW'Scripter'Plugin'JavaScript     => .002, # new init interface
 );
 
 

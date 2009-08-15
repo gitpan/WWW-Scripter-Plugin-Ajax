@@ -1,6 +1,10 @@
 Revision history for WWW::Scripter::Plugin::Ajax
 
-0.01    6 April, 2009
+0.02    15 August, 2009
+        Fixed to work  with  WWW::Scripter::Plugin::JavaScript  0.002.
+        The test script was relying on a bug in that module.
+
+0.01    5 April, 2009
         First version. Just a renamed version of the Mech plugin with
         a few tweaks.
 

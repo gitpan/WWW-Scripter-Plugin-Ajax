@@ -6,6 +6,7 @@ use Test::More;
 
 use utf8;
 use WWW::Scripter;
+use WWW::Scripter::Plugin::JavaScript 0.002;
 use HTTP::Headers;
 use HTTP::Response;
 
@@ -70,7 +71,7 @@ my $m = new WWW::Scripter;
 use tests 1; # plugin isa
 
 isa_ok $m->use_plugin('Ajax' => init => sub {
-	for my $js_plugin(shift){
+	for my $js_plugin(shift->plugin('JavaScript')){
 		$js_plugin->new_function($_ => \&$_)
 			for qw 'ok is diag pass fail';
 	}

@@ -1,20 +1,30 @@
-WWW::Mechanize::Plugin::Ajax, version 0.05 (alpha)
+WWW::Scripter::Plugin::Ajax, version 0.02 (alpha)
 
-Plugin for WWW::Mechanize that provides the XMLHttpRequest object.
+Plugin for WWW::Scripter that provides the XMLHttpRequest object.
 
 
 RECENT CHANGES
 
-0.05
+0.02
 ----
+Fixed to work with WWW::Scripter::Plugin::JavaScript 0.002.  The test
+script was relying on a bug in that module.
+
+0.01
+----
+First version.  Just a renamed version of  the  Mech  plugin  with  a
+few tweaks.
+
+WWW::Mechanize::Plugin::Ajax 0.05
+---------------------------------
 No new features; just updated to work with LWP 5.818
 
-0.04
-----
+WWW::Mechanize::Plugin::Ajax 0.04
+---------------------------------
 No new features; just updated to work with LWP 5.815
 
-0.03
-----
+WWW::Mechanize::Plugin::Ajax 0.03
+---------------------------------
 • The errors produced when the URL passed to open is from the wrong
   site/port/etc. are now DOMException objects.
 • The open method now clears the responseText and the request headers.
@@ -41,9 +51,9 @@ INSTALLATION
 The easiest way to install this module is to use the CPAN module or
 the cpan script:
 
-    [sudo] perl -MCPAN -e "install WWW::Mechanize::Plugin::Ajax"
+    [sudo] perl -MCPAN -e "install WWW::Scripter::Plugin::Ajax"
 
-    [sudo] cpan WWW::Mechanize::Plugin::Ajax
+    [sudo] cpan WWW::Scripter::Plugin::Ajax
 
 Or you can use the following:
 
@@ -59,9 +69,9 @@ This module requires:
 
 - perl 5.8.3 or higher
 
-- WWW::Mechanize::Plugin::DOM 0.005 or later
+- WWW::Scripter
 
-- WWW::Mechanize::Plugin::JavaScript 0.004 or later
+- WWW::Scripter::Plugin::JavaScript 0.002 or later
 
 - XML::DOM::Lite
 
@@ -71,25 +81,22 @@ This module requires:
 
 - Encode 2.09 or higher
 
-- The experimental version of WWW::Mechanize available at
-  http://www-mechanize.googlecode.com/svn/wm/branches/plugins/
-
 
 DOCUMENTATION
 
 After installing, you can find documentation for these modules with
 the perldoc command.
 
-    perldoc WWW::Mechanize::Plugin::Ajax
+    perldoc WWW::Scripter::Plugin::Ajax
 
 Or try using man (it's faster, in my experience):
 
-    man WWW::Mechanize::Plugin::Ajax
+    man WWW::Scripter::Plugin::Ajax
 
 
 COPYRIGHT AND LICENCE
 
-Copyright © 2008 Father Chrysostomos
+Copyright © 2008-9 Father Chrysostomos
 
 This program is free software; you may redistribute it and/or modify
 it under the same terms as perl.
