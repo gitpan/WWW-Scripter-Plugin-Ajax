@@ -6,7 +6,7 @@ use Test::More;
 
 use utf8;
 use WWW::Scripter;
-use WWW::Scripter::Plugin::JavaScript 0.002;
+use WWW::Scripter::Plugin::JavaScript 0.002; # new init interface
 use HTTP::Headers;
 use HTTP::Response;
 
@@ -73,7 +73,7 @@ use tests 1; # plugin isa
 isa_ok $m->use_plugin('Ajax' => init => sub {
 	for my $js_plugin(shift->plugin('JavaScript')){
 		$js_plugin->new_function($_ => \&$_)
-			for qw 'ok is diag pass fail';
+			for qw 'ok is diag pass fail unlike like';
 	}
 }), 'WWW::Scripter::Plugin::Ajax';
 
@@ -475,9 +475,9 @@ EOT7
 
 
 #----------------------------------------------------------------#
-use tests 2; # get(All)ResponseHeader(s)
+use tests 6; # get(All)ResponseHeader(s)
 defined $m->eval(<<'EOT8') or die;
-	with(request)
+	with(request) {
 		open('GET','http://foo.com/echo',0),
 		send(null),
 		ok(getAllResponseHeaders().match(
@@ -485,6 +485,35 @@ defined $m->eval(<<'EOT8') or die;
 		), "getAllResponseHeaders")||diag(getAllResponseHeaders()),
 		is(getResponseHeader('Content-Type'), 'text/plain',
 			'getResponsHeader');
+
+		open('GET','http://foo.com/echo',0)
+		try{ getAllResponseHeaders();
+		     fail("getAllResponseHeaders after open")
+		     fail("getAllResponseHeaders after open") }
+		catch(_) {
+		 ok(
+		  _ instanceof DOMException,
+		  "error from getAllResponseHeaders is a DOMException"
+		 )
+		 is(
+		   _.code, DOMException.INVALID_STATE_ERR,
+		  'error code after getAllResponseHeaders'
+		 )
+		}
+		try{ getResponseHeader("content-type");
+		     fail("getResponseHeader after open")
+		     fail("getResponseHeader after open") }
+		catch(_) {
+		 ok(
+		  _ instanceof DOMException,
+		  "error from getResponseHeader is a DOMException"
+		 )
+		 is(
+		   _.code, DOMException.INVALID_STATE_ERR,
+		  'error code after getResponseHeader'
+		 )
+		}
+	}
 EOT8
 
 
@@ -601,7 +630,7 @@ EOT1\3
 
 
 #----------------------------------------------------------------#
-use tests 10; # s’curity
+use tests 23; # s’curity (including redirects)
 $m->get('http://foo.com/htmlexample');
 defined $m->eval(<<'EOT14') or die;
 	with(new XMLHttpRequest) {
@@ -657,7 +686,124 @@ defined $m->eval(<<'EOT15') or die;
 		  'error code after open w/two non-ihost paths')
 	}
 EOT15
+{
+	no warnings 'redefine';
 
+	$m->get('http://foo.com/htmlexample');
+
+	# Infinite redirect
+	local *FakeProtocol::_create_response_object = sub {
+		my $request = shift;
+		(my $uri = $request->uri->clone)->path('/'.rand);
+
+		my $h = new HTTP::Headers;
+		header $h 'Content-Type', 'text/html';
+		header $h 'Location', $uri;
+		my $r = new HTTP::Response
+			(302, "redirect", $h);
+		$r, '';
+	};
+
+	defined $m->eval(<<'	EOT15a') or die;
+		with(XMLHttpRequest) // for constants
+		with(request=new XMLHttpRequest) {
+			var states=[]
+			try{
+				open('GET',location,false);
+				onreadystatechange
+				 = function() { states.push(readyState) }
+				send()
+				fail('exception on infinite redirect')
+				fail('exception on infinite redirect')
+			}
+			catch($){
+				ok($ instanceof DOMException,
+				 'class of error thrown by inf redirect')
+				is($.code, 19/*~~~NETWORK_ERR*/,
+				  'error code after infinite redirect')
+			}
+			ok(
+			 request.getResponseHeader("Content-Type")===null,
+			 'error flag is set after infinite redirect'
+			)
+			ok(
+			 request.getAllResponseHeaders()==='',
+			 'getAllResponseHeaders is "" after network errors'
+			)
+			is(
+			  readyState, XMLHttpRequest.DONE,
+			 'DONE state after infinite redirect'
+			)
+			unlike(
+			 states, '/4/',
+			 'inf redirect triggers no orsc when synchronous'
+			)
+			open('GET',location,true);
+			states=[];
+			send()
+			like(
+			 states, '/'+DONE+'/',
+			 "inf redirect triggers orsc on network error"
+			)
+		}
+	EOT15a
+
+	# Redirect to another site
+	local *FakeProtocol::_create_response_object = sub {
+		my $request = shift;
+
+		my $h = new HTTP::Headers;
+		header $h 'Content-Type', 'text/html';
+		header $h 'Location', "http://we've-not-used-this.yet/";
+		my $r = new HTTP::Response
+			(302, "redirect", $h);
+		$r, '';
+	};
+
+	defined $m->eval(<<'	EOT15b') or die;
+		with(XMLHttpRequest) // for constants
+		with(request) {
+		 var states=[]
+		 try{
+		  open('GET',location,false);
+		  onreadystatechange
+		   = function() { states.push(readyState) }
+		  send()
+		  fail('exception on external redirect')
+		  fail('exception on external redirect')
+		 }
+		 catch($){
+		  ok($ instanceof DOMException,
+		   'class of error thrown by ext redirect')
+		  is($.code, 19/*~~~NETWORK_ERR*/,
+		    'error code after external redirect')
+		  // ~~~ Yes, this is what the spec says. I think it should
+		  //     be SECURITY_ERR.
+		 }
+		 ok(
+		  request.getResponseHeader("Content-Type")===null,
+		  'error flag is set after external redirect'
+		 )
+		 is(
+		   readyState, XMLHttpRequest.DONE,
+		  'DONE state after external redirect'
+		 )
+		 unlike(
+		  states, '/'+DONE+'/',
+		  'ext redirect triggers no orsc when synchronous'
+		 )
+		 open('GET',location,true);
+		 states=[];
+		 send()
+		 like(
+		  states, '/'+DONE+'/',
+		  "ext redirect triggers orsc on network error"
+		 )
+		}
+	EOT15b
+
+	$m->back();
+}
 
 #----------------------------------------------------------------#
 use tests 7; # EventTarget

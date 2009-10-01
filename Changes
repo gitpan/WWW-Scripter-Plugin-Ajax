@@ -1,5 +1,16 @@
 Revision history for WWW::Scripter::Plugin::Ajax
 
+0.03    30 September, 2009
+      • Infinite or external redirects are  now  turned  into  errors
+        (NETWORK_ERRs) if async is false. In any case, they now cause
+        all information pertaining to the response  to  be  discarded.
+      • getResponseHeader and  getAllResponseHeaders  now produce the
+        correct type of error  (INVALID_STATE_ERR)  when the state is
+        UNSENT or OPENED.
+      • As a temporary hack to get someone’s code working,  this  mod-
+        ule adds textContent to XML::DOM::Lite::Node,  if it does not
+        already exist.
+
 0.02    15 August, 2009
         Fixed to work  with  WWW::Scripter::Plugin::JavaScript  0.002.
         The test script was relying on a bug in that module.

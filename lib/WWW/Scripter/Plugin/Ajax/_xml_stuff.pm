@@ -58,6 +58,8 @@ use HTML::DOM::Interface ':all'; # for the constants
   		appendChild => METHOD | OBJ,
   		hasChildNodes => METHOD | BOOL,
   		cloneNode => METHOD | OBJ,
+  		textContent => STR, # temporary band-aid; implemented by
+  		                    # this module, not by XDL
   	 },
   	 NodeList => {
 		_hash => 1,
@@ -66,6 +68,31 @@ use HTML::DOM::Interface ':all'; # for the constants
   		length => NUM | READONLY,
   	 },
   );
+
+can XML'DOM'Lite'Node:: textContent or eval '
+  use XML::DOM::Lite "TEXT_NODE";
+  sub XML::DOM::Lite::Node::textContent {
+   if(@_ == 1) { # serialise
+    my @nodes = shift;
+    my $out;
+    while(@nodes) {
+     my $node = shift @nodes;
+     if($node->nodeType == TEXT_NODE) {
+      $out .= $node->nodeValue;
+     }
+     else {
+      unshift @nodes, @{ $node->childNodes };
+     }
+    }
+    $out;
+   }
+   else { # assignment
+    my $node = shift;
+    $node->removeChild($_) for @{[@{ $node->childNodes }]};
+    $node->appendChild($node->ownerDocument->createTextNode(shift));
+   }
+  } 
+';
 
 for my $i(\%WWW::Scripter::Plugin::Ajax::_xml_interf){
 	for(grep /::/, keys %$i) {

@@ -1,9 +1,19 @@
-WWW::Scripter::Plugin::Ajax, version 0.02 (alpha)
+WWW::Scripter::Plugin::Ajax, version 0.03 (alpha)
 
 Plugin for WWW::Scripter that provides the XMLHttpRequest object.
 
 
 RECENT CHANGES
+
+0.03
+----
+• Infinite  or  external  redirects  are  now  detected  and  handled
+  correctly.
+• getResponseHeader  and  getAllResponseHeaders  now produce the  cor-
+  rect type of error  (INVALID_STATE_ERR)  when the state  is  UNSENT
+  or OPENED.
+• As a temporary hack to get someone’s code working, this module adds
+  textContent  to XML::DOM::Lite::Node,  if it does not already exist.
 
 0.02
 ----

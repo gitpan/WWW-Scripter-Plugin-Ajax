@@ -7,6 +7,7 @@ Makefile.PL
 MANIFEST
 README
 t/test.t
+t/textContent.t
 t/tests.pm
 t/threads/shared.pm
 t/threads.pm

@@ -7,7 +7,7 @@ use Scalar::Util 'weaken';
 
 use warnings; no warnings 'utf8';
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 sub init {
 	my($pack,$mech) = (shift,shift);
@@ -76,6 +76,8 @@ use URI::Escape;
 use constant 1.03 do { my $x; +{
 	map(+($_=>$x++), qw[ UNSENT OPENED HEADERS_RECEIVED LOADING DONE]),
 	SECURITY_ERR => 18,
+	NETWORK_ERR => 19,
+	ABORT_ERR => 20,
 }};
 
 # There are six different states that the object can be in:
@@ -148,23 +150,7 @@ sub open{
 
 	$self->[url] = my $url = new_abs URI $self->[url],
 			$self->[mech]->base;
-	length LWP'Protocol'implementor $url->scheme
-		or die new HTML::DOM::Exception NOT_SUPPORTED_ERR,
-		"Protocol scheme '${\$url->scheme}' is not supported";
-
-	my $page_url = $self->[mech]->uri;
-	my $host1 = eval{$page_url->host};
-	my $host2 = eval{$url->host};
-	!defined $host1 || !defined $host2 || $host1 ne $host2
-		and die new HTML'DOM'Exception SECURITY_ERR,
-			"Permission denied ($url: wrong host)";
-	$page_url->scheme ne $url->scheme
-		and die new HTML'DOM'Exception SECURITY_ERR,
-			"Permission denied ($url: wrong scheme)";
-	no warnings 'uninitialized';
-	eval{$page_url->port}ne eval{$url->port}
-		and die new HTML'DOM'Exception SECURITY_ERR,
-			"Permission denied ($url: wrong port)";
+	_check_url($url, $self->[mech]->uri);
 	$url->fragment(undef); # ~~~ Shouldn’t WWW::Scripter be doing this
 
 	if(@_){ # name arg
@@ -190,6 +176,27 @@ sub open{
 	$self->[state]=1;
 	$self->_trigger_orsc;
 	return;
+}
+
+sub _check_url { # checks protocol and same-originness
+	my ($new,$current,$error_code) = @_;
+	length LWP'Protocol'implementor $new->scheme
+		or die new HTML::DOM::Exception
+		 $error_code||NOT_SUPPORTED_ERR,
+		 "Protocol scheme '${\$new->scheme}' is not supported";
+
+	my $host1 = eval{$current->host};
+	my $host2 = eval{$new->host};
+	!defined $host1 || !defined $host2 || $host1 ne $host2
+		and die new HTML'DOM'Exception $error_code||SECURITY_ERR,
+			"Permission denied ($new: wrong host)";
+	$current->scheme ne $new->scheme
+		and die new HTML'DOM'Exception $error_code||SECURITY_ERR,
+			"Permission denied ($new: wrong scheme)";
+	no warnings 'uninitialized';
+	eval{$current->port}ne eval{$new->port}
+		and die new HTML'DOM'Exception $error_code||SECURITY_ERR,
+			"Permission denied ($new: wrong port)";
 }
 
 sub send{
@@ -231,8 +238,53 @@ sub send{
 	$self->_trigger_orsc;
 
 	$self->[state] = HEADERS_RECEIVED; # ~~~ This is in the wrong place
-	$self->_trigger_orsc;
-	my $res = $self->[res] = $clone->request($request);
+	$self->_trigger_orsc;              # When I fix this, I need to
+	                                   # make sure the redirect_ok
+	                                   # hook is not present during
+	                                   # orsc, since it would affect
+	                                   # other requests
+
+	# Insert hook to check redirections
+	my $error; my $redirected; my $res;
+	{
+		no warnings 'redefine';
+		local *LWP'UserAgent'redirect_ok = sub {
+			local $@;
+			eval{
+				_check_url(
+				  $_[1]->url,
+				  $self->[mech]->uri,
+				  NETWORK_ERR,
+				)
+			};
+			++$redirected;
+			not $error=$@
+		};
+
+	# send request
+		$res = $self->[res] = $clone->request($request);
+	}
+
+	# check for bad redirects
+	my $async = $self->[async];
+	if(
+	 $error
+	  or
+	 # (check $redirected first to avoid a method call)
+	 $redirected and $res->code =~ /^3/ and
+	  (
+	   $async || (
+	    $error = new HTML'DOM'Exception NETWORK_ERR,
+	     "Infinite redirect"
+	   ),
+	   1
+	  )
+	) {
+		$self->[state] = 4;
+		delete $self->[res];
+		$async ? ($self->_trigger_orsc, return) : die $error;
+	}
+
 	$self->[state] = LOADING;
 	$self->_trigger_orsc;
 
@@ -259,11 +311,19 @@ sub abort { # ~~~ If I make this asynchronous, this method might actually
 }
 
 sub getAllResponseHeaders { # ~~~ is the format correct?
-	shift->[res]->headers->as_string
+	no warnings 'uninitialized';
+	$_[0][state] <= OPENED
+	 and die new HTML'DOM'Exception INVALID_STATE_ERR,
+	  "getAllResponseHeaders only works after calls to send()";
+	(shift->[res]||return '')->headers->as_string
 }
 
 sub getResponseHeader {
-	shift->[res]->header(shift)
+	no warnings 'uninitialized';
+	$_[0][state] <= OPENED
+	 and die new HTML'DOM'Exception INVALID_STATE_ERR,
+	  "getResponseHeader only works after calls to send()";
+	(shift->[res]||return)->header(shift)
 }
 
 sub setRequestHeader {
@@ -465,7 +525,7 @@ WWW::Scripter::Plugin::Ajax - WWW::Scripter plugin that provides the XMLHttpRequ
 
 =head1 VERSION
 
-Version 0.02 (alpha)
+Version 0.03 (alpha)
 
 =head1 SYNOPSIS
 
@@ -583,9 +643,15 @@ serialising it as XML.)
 The SECURITY_ERR, NETWORK_ERR and ABORT_ERR constants are not available
 yet, as I don't know where to put them.
 
-In various other ways, it does not fully conform to the spec (which I only
-found out about recently). It would be quicker to fix them than to list
-them here. (And none of the Level 2 additions are implemented.)
+It does not conform to the spec in every detail, since the spec is still
+being written and is different every time I check it.
+
+None of the additional features in the Level 2 spec are implemented.
+
+There is currently no API to signal that the user has cancelled a
+connection. You can call the C<abort> method, but that does not have
+exactly the same result that a user-initiated cancellation is meant to 
+have.
 
 Furthermore, this module follows the badly-designed API that is
 unfortunately the standard so I can't do anything about it.
@@ -606,7 +672,7 @@ L<WWW::Scripter::Plugin::JavaScript>
 
 L<XML::DOM::Lite>
 
-The C<XMLHttpRequest> specification (draft as of August 2008):
+The C<XMLHttpRequest> specification (draft as of August 2009):
 L<http://www.w3.org/TR/XMLHttpRequest/>
 
 C<XMLHttpRequest> Level 2: L<http://www.w3.org/TR/XMLHttpRequest2/>
