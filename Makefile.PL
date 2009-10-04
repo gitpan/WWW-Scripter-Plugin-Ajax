@@ -21,13 +21,14 @@ use ExtUtils::MakeMaker;
         WWW'Scripter'Plugin'JavaScript  => 0,
         XML::DOM::Lite                  => 0, # version???
 # for testing:
+	File'Spec'Functions                =>  0,
 	HTML::DOM::Exception               => .013, # code
+	HTTP'Daemon                        =>  0,
 	HTTP::Response => 0, # version???
 	lib => 0,
 	strict => 0,
 	Test::More => 0,
 	utf8 => 0,
-	warnings => 0,
 	WWW::Scripter => 0,
         WWW'Scripter'Plugin'JavaScript     => .002, # new init interface
 );

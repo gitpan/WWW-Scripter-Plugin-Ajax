@@ -7,7 +7,7 @@ use Scalar::Util 'weaken';
 
 use warnings; no warnings 'utf8';
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 sub init {
 	my($pack,$mech) = (shift,shift);
@@ -216,9 +216,10 @@ sub send{
 	my $headers = new HTTP::Headers @{$self->[headers]||[]};
 	defined $self->[name] || defined $self->[pw] and
 		$headers->authorization_basic($self->[name], $self->[pw]);
+	no warnings 'uninitialized';
 	my $request = new HTTP::Request $self->[method], $self->[url],
 		$headers,
-		$self->[method] =~ /^(?:get|head)\z/i ? () : $data;
+		$self->[method] =~ /^(?:get|head)\z/i ? () : "$data";
 	my $jar = $clone->cookie_jar;
 	my $jar_class; # no, this has nothing to do with Java
 	$jar and $jar_class = ref $jar,
@@ -525,7 +526,7 @@ WWW::Scripter::Plugin::Ajax - WWW::Scripter plugin that provides the XMLHttpRequ
 
 =head1 VERSION
 
-Version 0.03 (alpha)
+Version 0.04 (alpha)
 
 =head1 SYNOPSIS
 
@@ -623,6 +624,14 @@ Encode 2.09 or higher
 =item *
 
 WWW::Scripter
+
+=item *
+
+LWP
+
+=item *
+
+URI
 
 =back
 
