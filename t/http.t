@@ -12,15 +12,16 @@ use WWW::Scripter::Plugin::JavaScript 0.002; # new init interface
 
 use Test'More;
 
+my $m = new WWW::Scripter;
+$m->use_plugin('Ajax'); # Load this before starting the server, in
+                        # case it dies.
+
 open my $server, '-|', $^X, catfile dirname($0), 'http-test-server'
  or ++$skip;
 chomp($port = <$server>);
 $port or ++$skip;
 
 plan $skip ? skip_all :( tests => 1 );
-
-my $m = new WWW::Scripter;
-$m->use_plugin('Ajax');
 
 # Lie to WWW::Scripter about what the current URL is, in order to bypass
 # the domain-checking

@@ -7,7 +7,7 @@ use Scalar::Util 'weaken';
 
 use warnings; no warnings 'utf8';
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 sub init {
 	my($pack,$mech) = (shift,shift);
@@ -66,6 +66,7 @@ use Scalar::Util 1.09 qw 'weaken blessed refaddr';
 use HTML::DOM::Event;
 use HTML::DOM::Exception qw 'SYNTAX_ERR NOT_SUPPORTED_ERR
                              INVALID_STATE_ERR';
+no HTTP'Cookies 5.833 (); # non-clobbering add_cookie_header
 use HTTP::Headers;
 use HTTP::Headers::Util 'split_header_words';
 use HTTP::Request;
@@ -221,9 +222,6 @@ sub send{
 		$headers,
 		$self->[method] =~ /^(?:get|head)\z/i ? () : "$data";
 	my $jar = $clone->cookie_jar;
-	my $jar_class; # no, this has nothing to do with Java
-	$jar and $jar_class = ref $jar,
-	         bless $jar, 'WWW::Scripter::Plugin::Ajax::Cookies';
 
 	# The spec says to set the send() flag only if it’s an asynchronous
 	# request. I think that is a mistake, because the following would
@@ -288,8 +286,6 @@ sub send{
 
 	$self->[state] = LOADING;
 	$self->_trigger_orsc;
-
-	$jar and bless $jar, $jar_class;
 
 	$self->[xml] = ($res->content_type||'') =~
 	   /(?:^(?:application|text)\/xml|\+xml)\z/ || undef;
@@ -481,26 +477,6 @@ sub dispatchEvent { # This is where all the work is.
 	return !cancelled $event;
 }
 
-
-
-package WWW::Scripter::Plugin::Ajax::Cookies;
-require HTTP::Cookies;
-@ISA = HTTP::Cookies;
-
-# We have to override this to make sure that add_cookie_header doesn’t
-# clobber any fake cookies.
-
-sub add_cookie_header {
-	my $self = shift;
-	my($request)= @_ or return;
-	my @cookies = $request->header('Cookie');
-	my @ret = $self->SUPER::add_cookie_header(@_);
-	@ret and @cookies and
-	   join ', ', @cookies, ne $request->header('Cookie')
-	  and $request->push_header(cookie => \@cookies);
-	wantarray ? @ret : $ret[0];
-}
-
 !+()
 
 __END__
@@ -526,7 +502,7 @@ WWW::Scripter::Plugin::Ajax - WWW::Scripter plugin that provides the XMLHttpRequ
 
 =head1 VERSION
 
-Version 0.04 (alpha)
+Version 0.05 (alpha)
 
 =head1 SYNOPSIS
 
@@ -627,7 +603,7 @@ WWW::Scripter
 
 =item *
 
-LWP
+LWP 5.833 or higher
 
 =item *
 

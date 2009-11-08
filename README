@@ -1,9 +1,13 @@
-WWW::Scripter::Plugin::Ajax, version 0.04 (alpha)
+WWW::Scripter::Plugin::Ajax, version 0.05 (alpha)
 
 Plugin for WWW::Scripter that provides the XMLHttpRequest object.
 
 
 RECENT CHANGES
+
+0.05
+----
+Fixed to work with LWP 5.833
 
 0.04
 ----
@@ -21,11 +25,6 @@ for reporting the error.
   or OPENED.
 • As a temporary hack to get someone’s code working, this module adds
   textContent  to XML::DOM::Lite::Node,  if it does not already exist.
-
-0.02
-----
-Fixed to work with WWW::Scripter::Plugin::JavaScript 0.002.  The test
-script was relying on a bug in that module.
 
 
 INSTALLATION

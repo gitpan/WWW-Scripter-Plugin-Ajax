@@ -9,22 +9,23 @@ use ExtUtils::MakeMaker;
         HTML::DOM::Event                => 0,
 	HTML::DOM::Exception            => 0,
         HTML::DOM::Interface            => 0,
-        HTTP::Cookies                   => 0,
-	HTTP::Headers                   => 0, # version ???
+        HTTP::Cookies                   => 5.833, # non-clobbering
+                                                  # add_cookie_header
+	HTTP::Headers                   => 1.64, # repeated headers
         HTTP::Headers::Util             => 0,
-        HTTP::Request                   => 0, # version ???
+        HTTP::Request                   => 0,
 	LWP::Protocol                   => 0,
         Scalar::Util                    => 1.09,
         URI                             => 1, # new_abs
-	URI::Escape                     => 0, # version ???
+	URI::Escape                     => 0,
         warnings                        => 0,
         WWW'Scripter'Plugin'JavaScript  => 0,
-        XML::DOM::Lite                  => 0, # version???
+        XML::DOM::Lite                  => 0,
 # for testing:
 	File'Spec'Functions                =>  0,
 	HTML::DOM::Exception               => .013, # code
 	HTTP'Daemon                        =>  0,
-	HTTP::Response => 0, # version???
+	HTTP::Response                 => 0,
 	lib => 0,
 	strict => 0,
 	Test::More => 0,

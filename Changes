@@ -1,5 +1,8 @@
 Revision history for WWW::Scripter::Plugin::Ajax
 
+0.05    8 November, 2009
+        Fixed to work with LWP 5.833
+
 0.04    4 October, 2009
         Fixed a really nasty bug:  Sending any data  via  the  send()
         method via  HTTP  would tickle an incompatibility  with  LWP/

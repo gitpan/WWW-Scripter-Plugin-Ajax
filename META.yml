@@ -1,7 +1,7 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         WWW-Scripter-Plugin-Ajax
-version:      0.04
+version:      0.05
 version_from: lib/WWW/Scripter/Plugin/Ajax.pm
 installdirs:  site
 requires:
@@ -12,9 +12,9 @@ requires:
     HTML::DOM::Event:              0
     HTML::DOM::Exception:          0.013
     HTML::DOM::Interface:          0
-    HTTP::Cookies:                 0
+    HTTP::Cookies:                 5.833
     HTTP::Daemon:                  0
-    HTTP::Headers:                 0
+    HTTP::Headers:                 1.64
     HTTP::Headers::Util:           0
     HTTP::Request:                 0
     HTTP::Response:                0

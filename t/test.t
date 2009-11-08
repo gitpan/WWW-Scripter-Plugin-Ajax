@@ -349,9 +349,7 @@ defined $m->eval(<<'EOT4') or die;
 		setRequestHeader('Cookie','baz=bonk'),
 		send(),
 		ok(  responseText.match(
-			/^Cookie: foo=bar$/m
-		) && responseText.match(
-			/^Cookie: baz=bonk$/m
+		 /^Cookie: (?:foo=bar; baz=bonk|baz=bonk; foo=bar)$/m
 		), 'phaque cookies') || diag(responseText)
 	// erase the real cookie:
 	document.cookie="foo=bar;expires=" +
