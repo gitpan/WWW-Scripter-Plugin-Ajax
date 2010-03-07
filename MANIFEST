@@ -6,6 +6,7 @@ lib/WWW/Scripter/Plugin/Ajax.pm
 Makefile.PL
 MANIFEST
 README
+#t/async.t
 t/http-test-server
 t/http.t
 t/test.t

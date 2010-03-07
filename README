@@ -1,9 +1,28 @@
-WWW::Scripter::Plugin::Ajax, version 0.05 (alpha)
+WWW::Scripter::Plugin::Ajax, version 0.06 (alpha)
 
 Plugin for WWW::Scripter that provides the XMLHttpRequest object.
 
 
 RECENT CHANGES
+
+0.06
+----
+• perl 5.8.4 and lower are no longer supported.
+• LWP errors are now turned into NETWORK_ERRs.
+• Encoding detection has been improved.
+• The  open  method now dies if the  name  argument contains a  colon.
+• Names and passwords are now sent in UTF-8 encoding.
+• The body of a request is now encoded in UTF-8 if it is text,  or in
+  whatever encoding is specified via setRequestHeader.
+• Document objects passed  to  send()  are  now  serialised  properly.
+• send no longer has a return value.
+• onreadystatechange is no longer triggered multiple times by  send()
+  for synchronous requests.
+• The abort method now actually aborts when called from a  readystate-
+  change handler.
+• The  abort  method now switches the state to  DONE  and  calls  the
+  readystatechange  handlers  before  aborting  if  the  send  method
+  is active.
 
 0.05
 ----
@@ -15,16 +34,6 @@ Fixed a really nasty bug:  Sending any data via the send() method via
 HTTP would tickle an incompatibility with  LWP/Protocol/http.pm  that
 would result in an  LWP-generated 500 error.  Thanks to Steven Nikkel
 for reporting the error.
-
-0.03
-----
-• Infinite  or  external  redirects  are  now  detected  and  handled
-  correctly.
-• getResponseHeader  and  getAllResponseHeaders  now produce the  cor-
-  rect type of error  (INVALID_STATE_ERR)  when the state  is  UNSENT
-  or OPENED.
-• As a temporary hack to get someone’s code working, this module adds
-  textContent  to XML::DOM::Lite::Node,  if it does not already exist.
 
 
 INSTALLATION
@@ -81,7 +90,7 @@ Or try using man (it's faster, in my experience):
 
 COPYRIGHT AND LICENCE
 
-Copyright © 2008-9 Father Chrysostomos
+Copyright © 2008-10 Father Chrysostomos
 
 This program is free software; you may redistribute it and/or modify
 it under the same terms as perl.

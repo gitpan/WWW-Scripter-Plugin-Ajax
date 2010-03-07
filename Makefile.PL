@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-BEGIN { require 5.006; }
+BEGIN { require 5.008005; } # utf8'encode that stringifies
 use ExtUtils::MakeMaker;
 %prq = (
         constant                        => 1.03, # multip. const. @ 1ce
@@ -20,19 +20,27 @@ use ExtUtils::MakeMaker;
 	URI::Escape                     => 0,
         warnings                        => 0,
         WWW'Scripter'Plugin'JavaScript  => 0,
-        XML::DOM::Lite                  => 0,
+        XML::DOM::Lite                  =>  .09,
 # for testing:
 	File'Spec'Functions                =>  0,
 	HTML::DOM::Exception               => .013, # code
 	HTTP'Daemon                        =>  0,
 	HTTP::Response                 => 0,
-	lib => 0,
+	JE                             =>  .041, # bind_class bug with
+	lib                            => 0,     # array-like proxies
 	strict => 0,
 	Test::More => 0,
 	utf8 => 0,
 	WWW::Scripter => 0,
         WWW'Scripter'Plugin'JavaScript     => .002, # new init interface
 );
+# Avoid requiring JE if it isn’t going to be used.
+eval{
+ require WWW'Scripter;
+ my $w = new WWW'Scripter;
+ $w->use_plugin("JavaScript");
+ $w->eval("1");
+} and !exists $INC{"JE.pm"} and delete $prq{JE};
 
 
 WriteMakefile(

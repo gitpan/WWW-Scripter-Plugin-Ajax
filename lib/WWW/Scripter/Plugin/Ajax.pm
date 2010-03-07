@@ -1,13 +1,13 @@
 package WWW::Scripter::Plugin::Ajax;
 
-use 5.006;
+use 5.008005; # utf8'encode that stringifies
 
 use HTML::DOM::Interface ':all';
 use Scalar::Util 'weaken';
 
 use warnings; no warnings 'utf8';
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 sub init {
 	my($pack,$mech) = (shift,shift);
@@ -61,7 +61,7 @@ sub options {
 
 package WWW::Scripter::Plugin::Ajax::XMLHttpRequest;
 
-use Encode 2.09 'decode';
+use Encode 2.09 qw 'decode encode find_encoding';
 use Scalar::Util 1.09 qw 'weaken blessed refaddr';
 use HTML::DOM::Event;
 use HTML::DOM::Exception qw 'SYNTAX_ERR NOT_SUPPORTED_ERR
@@ -69,6 +69,7 @@ use HTML::DOM::Exception qw 'SYNTAX_ERR NOT_SUPPORTED_ERR
 no HTTP'Cookies 5.833 (); # non-clobbering add_cookie_header
 use HTTP::Headers;
 use HTTP::Headers::Util 'split_header_words';
+use HTTP'Message 5.827 (); # content_charset
 use HTTP::Request;
 no  LWP::Protocol();
 use URI 1;
@@ -97,8 +98,6 @@ use constant 1.03 do { my $x; +{
 # tain methods are supposed to  die  in  the  SENT  state,  but  not  the
 # OPENED  state.  Furthermore,  we  *do*  trigger  orsc  when  the  state
 # changes to SENT.
-# ~~~ Actually, we don’t do that yet because all the tuits I’ve been
-#     receiving lately were square, rather than round.
 
 # The lc lexical constants are field indices.
 
@@ -156,6 +155,13 @@ sub open{
 
 	if(@_){ # name arg
 		if( defined($self->[name] = shift) ) {
+			$$self[name] =~ /:/
+			 and die new HTML'DOM'Exception
+			    SYNTAX_ERR,
+			    (
+			     "Names cannot contain colons ($$self[name])",
+			      delete $$self[name]
+			    )[0];
 			if(@_) {
 				$self->[pw] = shift;
 			}
@@ -172,6 +178,7 @@ sub open{
 		$self->[pw] = $pw if defined $pw; # avoid clobbering it
 		                                  # when we shouldn’t
 	}
+	defined and utf8::encode $_ for @$self[name,pw];
 
 	delete @$self[res,headers];
 	$self->[state]=1;
@@ -217,31 +224,83 @@ sub send{
 	my $headers = new HTTP::Headers @{$self->[headers]||[]};
 	defined $self->[name] || defined $self->[pw] and
 		$headers->authorization_basic($self->[name], $self->[pw]);
-	no warnings 'uninitialized';
 	my $request = new HTTP::Request $self->[method], $self->[url],
-		$headers,
-		$self->[method] =~ /^(?:get|head)\z/i ? () : "$data";
-	my $jar = $clone->cookie_jar;
+		$headers;
+	if($self->[method] !~ /^(?:get|head)\z/i && defined $data) {
+		my $default_mime = 'text/plain';
+		my $default_charset = 'utf-8';
+		if(defined blessed $data) {
+			if($data->isa('HTML::DOM')) {
+				$default_mime = 'text/html';
+				$default_charset = $data->charset;
+				$data = $data->innerHTML;
+			}
+			elsif($data->can('createElement')) { # quack!
+				$default_mime = 'application/xml';
 
-	# The spec says to set the send() flag only if it’s an asynchronous
-	# request. I think that is a mistake, because the following would
-	# cause infinite recursion otherwise:
-	#  with( new XMLHttpRequest ) {
-	#    open ('GET', 'foo', false) //synchronous
-	#    onreadystatechange = function() {
-	#      if(readyState == XMLHttpRequest.OPENED) send()
-	#    }
-	#    send()
-	#  }
-	$self->[state] = SENT;
-	$self->_trigger_orsc;
+				# XML documents override the HTTP charset
+				content_type $request
+				 scalar content_type $request; # erase
+				                               # charset
+				# XML::LibXML:
+				if($data->can('serialize')) {
+					$default_charset
+					 = $data->actualEncoding;
+					$data
+					 = decode
+					    $charset, $data->serialize;
+				}
+				else {
+					# Assume XML::DOM::Lite.
+					# ~~~ If this is not the case, what
+					#     do we do???
+					our $xml_dom_lite_cereal ||= (
+					 require XML'DOM'Lite,
+					 new XML'DOM'Lite'Serializer::
+					);
+					$data
+					 = join
+					    "",
+					     map
+					      $xml_dom_lite_cereal
+					       ->serializeToString($_),
+					      @{ childNodes $data };
+				}
+			}
+		}
+
+		my $charset = $request->content_type_charset;
+		if(!defined $charset) {
+			content $request encode $default_charset, $data;
+			content_type $request
+			 (content_type $request || $default_mime)
+			  . qq ';charset=$default_charset'
+		}
+		elsif(my $enc = find_encoding $charset) {
+			content $request $enc->encode($data);
+		}
+		else {
+			content_type $request
+			 content_type $request
+			  . ";charset=$default_charset";
+			content $request encode $default_charset, $data;
+		}
+	}
+
+	my $async = $self->[async];
+
+	if($async) {
+		$self->[state] = SENT;
+		$self->_trigger_orsc;
+		$self->[state] or return;
 
 	$self->[state] = HEADERS_RECEIVED; # ~~~ This is in the wrong place
 	$self->_trigger_orsc;              # When I fix this, I need to
-	                                   # make sure the redirect_ok
+	$self->[state] or return;          # make sure the redirect_ok
 	                                   # hook is not present during
 	                                   # orsc, since it would affect
 	                                   # other requests
+	}
 
 	# Insert hook to check redirections
 	my $error; my $redirected; my $res;
@@ -265,7 +324,6 @@ sub send{
 	}
 
 	# check for bad redirects
-	my $async = $self->[async];
 	if(
 	 $error
 	  or
@@ -278,14 +336,25 @@ sub send{
 	   ),
 	   1
 	  )
+	  or
+	 defined($error = $res->header('client-warning'))
+	   and (
+	    $async || (
+	     $error = new HTML'DOM'Exception NETWORK_ERR, $error
+	    ),
+	    1
+	   )
 	) {
 		$self->[state] = 4;
 		delete $self->[res];
 		$async ? ($self->_trigger_orsc, return) : die $error;
 	}
 
-	$self->[state] = LOADING;
-	$self->_trigger_orsc;
+	if($async) {
+		$self->[state] = LOADING;
+		$self->_trigger_orsc;
+		$self->[state] or return;
+	}
 
 	$self->[xml] = ($res->content_type||'') =~
 	   /(?:^(?:application|text)\/xml|\+xml)\z/ || undef;
@@ -296,14 +365,16 @@ sub send{
 	$self->_trigger_orsc;
 	delete $self->[tree] ;
 
-	return $res->is_success;
-	# ~~~ Ajax for Web Application Developers says it has to equal 200.
-	#     That doesn’t sound right to me. (E.g., what if it’s 206?)
+	_:
 }
 
-sub abort { # ~~~ If I make this asynchronous, this method might actually
-            #     be made to do something useful.
-	shift->[state] = 0;
+sub abort { # ~~~ This must needs slay the other process once we have
+            #     unfeigned asynchrony.
+	delete +(my $self = shift)->[res];
+	$self->[state] > 1 && $$self[state] < 4 and
+	 $self->[state] = 4,
+	 $self->_trigger_orsc;
+	$self->[state] = 0;
 	return
 }
 
@@ -396,10 +467,10 @@ sub readyState {
 
 sub responseText { # string response from the server
 	my $content = (my $res = $_[0]->[res]||return '')->content;
-	my $cs = { map @$_,
-	  split_header_words $res->header('Content-Type')
-	 }->{charset};
-	decode defined $cs ? $cs : utf8 => $content
+	my $cs = content_charset $res;
+	my $ret = decode defined $cs ? $cs : utf8 => $content;
+	$ret =~ s/\x{fffd}+/\x{fffd}/g;
+	$ret;
 }
 
 sub responseXML { # XML::DOM::Lite object
@@ -502,7 +573,7 @@ WWW::Scripter::Plugin::Ajax - WWW::Scripter plugin that provides the XMLHttpRequ
 
 =head1 VERSION
 
-Version 0.05 (alpha)
+Version 0.06 (alpha)
 
 =head1 SYNOPSIS
 
@@ -572,7 +643,7 @@ future versions.
 
 =head1 PREREQUISITES
 
-This plugin requires perl 5.8.3 or higher, and the following modules:
+This plugin requires perl 5.8.5 or higher, and the following modules:
 
 =over 4
 
@@ -643,7 +714,7 @@ unfortunately the standard so I can't do anything about it.
 
 =head1 AUTHOR & COPYRIGHT
 
-Copyright (C) 2008-9 Father Chrysostomos
+Copyright (C) 2008-10 Father Chrysostomos
 <C<< ['sprout', ['org', 'cpan'].reverse().join('.')].join('@') >>E<gt>
 
 This program is free software; you may redistribute it and/or modify

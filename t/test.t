@@ -10,6 +10,10 @@ use WWW::Scripter::Plugin::JavaScript 0.002; # new init interface
 use HTTP::Headers;
 use HTTP::Response;
 
+# The HTML serialisation test triggers a bug in older versions of JE.
+eval{require WWW'Scripter'Plugin'JavaScript'SpiderMonkey}
+ or eval '1;use JE 0.041' or die $@;
+
 our %SRC;
 
 # For faking HTTP requests; this gets the source code from the global %SRC
@@ -61,8 +65,8 @@ no warnings 'redefine';
 
 # For echo requests (well, not exactly; the responses have an HTTP response
 # header as well)
-$SRC{'POST http://foo.com/echo'}=['text/plain',sub{ shift->as_string }];
-$SRC{'GET http://foo.com/echo'}=['text/plain',sub{ shift->as_string }];
+$SRC{'POST http://foo.com/echo'}=['text/plain; charset=iso-8859-1',sub{ shift->as_string }];
+$SRC{'GET http://foo.com/echo'}=['text/plain; charset=iso-8859-1',sub{ shift->as_string }];
 
 
 my $m = new WWW::Scripter;
@@ -156,7 +160,7 @@ defined $m->eval(<<'EOT2') or die;
 			'setRequestHeader ignores "Stay alive!" header'),
 		ok(!responseText.match(/referer: http:\/\/google/i),
 			'setRequestHeader ignores Referer'),
-		ok(!responseText.match(/te/i),
+		ok(!responseText.match(/\bte\b/i),
 			'setRequestHeader ignores TE'),
 		ok(!responseText.match(/Trailer/i),
 			'setRequestHeader ignores Trailer header'),
@@ -181,7 +185,7 @@ defined $m->eval(<<'EOT2') or die;
 			is(e.code, DOMException.INVALID_STATE_ERR,
 			  'error code after setRequestHeader b4 open')
 		}
-		open('POST','http://foo.com/echo',0)
+		open('POST','http://foo.com/echo',1)
 		try{ setRequestHeader('n\\o','tono');
 		     fail('setRequestHeader with invalid header name');
 		     fail('setRequestHeader with invalid header name');
@@ -244,7 +248,7 @@ EOT3
 
 
 #----------------------------------------------------------------#
-use tests 12; # name & password
+use tests 16; # name & password
 {
 	# I’ve got to override one of FakeProtocol’s function, since what
 	# we have above is not sufficient for this case.
@@ -254,7 +258,7 @@ use tests 12; # name & password
 		my $request = shift;
 
 		my $h = new HTTP::Headers;
-		header $h 'Content-Type', 'text/html';
+		header $h 'Content-Type', 'text/html; charset=iso-8859-1';
 		header $h 'WWW-Authenticate', 'basic realm="foo"';
 		my $auth_present = $request->header('Authorization');
 		my $r = new HTTP::Response
@@ -292,7 +296,7 @@ use tests 12; # name & password
 			send(null),
 			is(status,401,
 				'credentials don\'t leak 2 other xhrs')
-		with(request)
+		with(request) {
 			open('GET','http://y%6fu:d%6fono@foo.com/echo',0),
 			send(null),
 			ok(responseText.match(/>you:doono</),
@@ -329,6 +333,35 @@ use tests 12; # name & password
 				null),
 			send(null),
 			is(status, 401, 'null name arg')
+
+			try{ open('GET','http://foo.com/',0,'a:b','c');
+			     fail('name with colon should die')
+			     fail('name with colon should die')
+			}catch(e){
+			 ok(
+			   e instanceof DOMException,
+			  'name with colon produces DOMException'
+			 )
+			 is(
+			   e.code, DOMException.SYNTAX_ERR,
+			  'name with colon produces SYNTAX_ERR'
+			 )
+			}
+
+			open('GET','http://foo.com/echo',0,
+				'ÿ', 'þ'),
+			send(null),
+			ok(
+			  responseText.match(/>Ã¿:Ã¾</),
+			 'UTF-8 encoding for name & pw in octet range'
+			) || diag(responseText)
+			open('GET','http://foo.com/echo',0,
+				'əɯɐu', 'pɹoʍssɐd'),
+			send(null),
+			ok(responseText.match(/>ÉÉ¯Éu:pÉ¹oÊssÉd</),
+				'UTF-8 encoding for name & pw')
+				 || diag(responseText)
+		}
 	EOT3b
 }
 
@@ -479,9 +512,10 @@ defined $m->eval(<<'EOT8') or die;
 		open('GET','http://foo.com/echo',0),
 		send(null),
 		ok(getAllResponseHeaders().match(
-			/^Content-Type: text\/plain\r?\n/
+		 /^Content-Type: text\/plain; charset=iso-8859-1\r?\n/
 		), "getAllResponseHeaders")||diag(getAllResponseHeaders()),
-		is(getResponseHeader('Content-Type'), 'text/plain',
+		ok(
+		 /^text\/plain;/.test(getResponseHeader('Content-Type')),
 			'getResponsHeader');
 
 		open('GET','http://foo.com/echo',0)
@@ -516,7 +550,7 @@ EOT8
 
 
 #----------------------------------------------------------------#
-use tests 6; # onreadystatechange and readyState
+use tests 8; # onreadystatechange and readyState
 $m->document->error_handler(sub { push @::event_errors, $@ });
 defined $m->eval(<<'EOT9') or die;
 0,function(){ // the function scope provides us with a var ‘scratch-pad’
@@ -531,8 +565,15 @@ defined $m->eval(<<'EOT9') or die;
 		is(mystate, 1, 'open triggers onreadystatechange')
 		send(null)
 		ok(readyState === 4, 'readyState after completion')
-		ok(mystate.match(/[^4]4$/),
-			'onreadystatechange is triggered for state 4')
+		is(mystate, '14',
+		 'sync orsc is triggered for state 4 but not 1.5 to 3')
+
+		mystate = ''
+		open('GET','http://foo.com/htmlexample')
+		is(mystate, 1, 'async open triggers onreadystatechange')
+		send(null)
+		is(mystate, '11234',
+		 'async orsc is triggered for all states')
 
 		open('GET','http://foo.com/htmlexample',0)
 		onreadystatechange = null
@@ -567,7 +608,7 @@ EOT10
 
 
 #----------------------------------------------------------------#
-use tests 4; # encoding
+use tests 13; # response encoding
 $SRC{'GET http://foo.com/explicit_utf-8.text'}=
 	['text/plain; charset=utf-8',"oo\311\237"];
 $SRC{'GET http://foo.com/implicit_utf-8.text'} =
@@ -577,6 +618,36 @@ $SRC{'GET http://foo.com/utf-16be.text'} =
 	 "\1\335\2\207\2P\2y\0o\2m\2m\1\335\2m\0n\2o\0n\2T\2y\35\t\2T"];
 $SRC{'GET http://foo.com/latin-1.text'} =
 	['text/plain; charset=iso-8859-1',"\311\271aq"];
+$SRC{'GET http://foo.com/greexml'}
+ = [
+     'application/xml',
+     "<?xml encoding='iso-8859-7'?>\xcc\xdf\xe1 "
+    ."\xf0\xdc\xf0\xe9\xe1, \xec\xe1 \xf0\xef\xe9\xdc "
+    ."\xf0\xdc\xf0\xe9\xe1;"
+   ];
+$SRC{'GET http://foo.com/greexml.html'}
+ = [
+     'text/html',
+     "<meta http-equiv=content-type "
+    ."content='text/html;charset=iso-8859-10'>"
+    ."\xcc\xdf\xe1 "
+    ."\xf0\xdc\xf0\xe9\xe1, \xec\xe1 \xf0\xef\xe9\xdc "
+    ."\xf0\xdc\xf0\xe9\xe1;"
+   ];
+$SRC{'GET http://foo.com/nontext-utf-32be'}
+ = ['application/non-text',"\0\0\xfe\xff\0\0\0 "];
+$SRC{'GET http://foo.com/nontext-utf-32le'}
+ = ['application/non-text',"\xff\xfe\0\0 \0\0\0"];
+$SRC{'GET http://foo.com/nontext-utf-16be'}
+ = ['application/non-text',"\xfe\xff\0 "];
+$SRC{'GET http://foo.com/nontext-utf-16le'}
+ = ['application/non-text',"\xff\xfe \0"];
+$SRC{'GET http://foo.com/nontext-utf-8'}
+ = ['application/non-text',"\xef\xbb\xbf\xc4\x80"];
+$SRC{'GET http://foo.com/nontext-utf-8-without-bomb'}
+ = ['application/non-text',"\xc4\x80"];
+$SRC{'GET http://foo.com/nontext-invalid-utf-8'}
+ = ['application/non-text',"\xc4\x80\xff\xff\xff\xff "];
 
 defined $m->eval(<<'EOT11') or die;
 	with(new XMLHttpRequest)
@@ -591,7 +662,61 @@ defined $m->eval(<<'EOT11') or die;
 		is(responseText, 'ǝʇɐɹoɭɭǝɭnɯnɔɹᴉɔ', 'utf-16be charset'),
 		open('GET','http://foo.com/latin-1.text',0),
 		send(null),
-		is(responseText, 'É¹aq', 'iso-8859-1 for the charset')
+		is(responseText, 'É¹aq', 'iso-8859-1 for the charset'),
+		open('GET','http://foo.com/greexml',0),
+		send(null),
+		is(
+		  responseText,
+		 "<?xml encoding='iso-8859-7'?>Μία πάπια, μα ποιά πάπια;",
+		 'XML wiith <?xml encoding?>'
+		),
+		open('GET','http://foo.com/greexml.html',0),
+		send(null),
+		is(
+		   responseText,
+		  '<meta http-equiv=content-type '
+		 +"content='text/html;charset=iso-8859-10'>"
+		 +'Ėßá ðÜðéá, ėá ðïéÜ ðÜðéá;',
+		  'HTML with <meta http-equiv=content-type>'
+		),
+		open('GET','http://foo.com/nontext-utf-32be',0),
+		send(null),
+		ok(
+		  /^\ufeff? $/.test(responseText),
+		 'non-text with utf-32be bomb'
+		),
+		open('GET','http://foo.com/nontext-utf-32le',0),
+		send(null),
+		ok(
+		  /^\ufeff? $/.test(responseText),
+		 'non-text with utf-32le bomb'
+		),
+		open('GET','http://foo.com/nontext-utf-16be',0),
+		send(null),
+		ok(
+		  /^\ufeff? $/.test(responseText),
+		 'non-text with utf-16be bomb'
+		),
+		open('GET','http://foo.com/nontext-utf-16le',0),
+		send(null),
+		ok(
+		  /^\ufeff? $/.test(responseText),
+		 'non-text with utf-32le bomb'
+		),
+		open('GET','http://foo.com/nontext-utf-8',0),
+		send(null),
+		ok(
+		  /^\ufeff?Ā$/.test(responseText),
+		 'non-text with utf-8 bomb'
+		),
+		open('GET','http://foo.com/nontext-utf-8-without-bomb',0),
+		send(null),
+		is(responseText, 'Ā','non-text with no bomb'),
+		open('GET','http://foo.com/nontext-invalid-utf-8',0),
+		send(null),
+		is(
+		 responseText, 'Ā\ufffd ','UTF-8 with invalid sequences'
+		)
 EOT11
 
 
@@ -628,7 +753,7 @@ EOT1\3
 
 
 #----------------------------------------------------------------#
-use tests 23; # s’curity (including redirects)
+use tests 29; # s’curity (including redirects) and network errors
 $m->get('http://foo.com/htmlexample');
 defined $m->eval(<<'EOT14') or die;
 	with(new XMLHttpRequest) {
@@ -802,6 +927,48 @@ EOT15
 
 	$m->back();
 }
+$SRC{'GET http://foo.com/die'} = ['text/plain',sub {die}];
+$m->get('http://foo.com/htmlexample');
+defined $m->eval(<<'EOT15c') or die;
+		with(XMLHttpRequest) // for constants
+		with(new XMLHttpRequest) {
+		 var states=[]
+		 try{
+		  open('GET','die',false);
+		  onreadystatechange
+		   = function() { states.push(readyState) }
+		  send()
+		  fail('exception on LWP error')
+		  fail('exception on LWP error')
+		 }
+		 catch($){
+		  ok($ instanceof DOMException,
+		   'class of error thrown by LWP error')
+		  is($.code, 19/*~~~NETWORK_ERR*/,
+		    'error code after LWP error')
+		 }
+		 ok(
+		  getResponseHeader("Content-Type")===null,
+		  'error flag is set after LWP error'
+		 )
+		 is(
+		   readyState, XMLHttpRequest.DONE,
+		  'DONE state after LWP error'
+		 )
+		 unlike(
+		  states, '/'+DONE+'/',
+		  'LWP error triggers no orsc when synchronous'
+		 )
+		 open('GET','die',true);
+		 states=[];
+		 send()
+		 like(
+		  states, '/'+DONE+'/',
+		  "LWP error triggers orsc when asynchronous"
+		 )
+		}
+EOT15c
+$m->back();
 
 #----------------------------------------------------------------#
 use tests 7; # EventTarget
@@ -816,7 +983,7 @@ defined $m->eval(<<'EOT16') or die;
 		var el5 = function(){ events += 5 }
 		var el6 = function(){ events += 6 }
 		with(new XMLHttpRequest) {
-			open('GET', location, false)
+			open('GET', location, true)
 			is(typeof addEventListener('readystatechange',el1,
 				true/*capture*/),
 				// There is no capture phase, so this event
@@ -998,17 +1165,17 @@ EOT20
 
 
 #----------------------------------------------------------------#
-use tests 13; # specifics of send
+use tests 14; # specifics of send
 defined $m->eval(<<'EOT21') or die;
 0,function(){
 with(new XMLHttpRequest) {
-	open("GET", '/echo',0);
+	open("GET", '/echo',1);
 	
 	var statechanges = ''
 	onreadystatechange = function(){
 		statechanges += readyState
 	}
-	send()
+	is(typeof send(), 'undefined', 'send() returns nought')
 	is(statechanges, '1234', 'readystatechange events caused by send');
 
 	onreadystatechange = null;
@@ -1027,7 +1194,7 @@ with(new XMLHttpRequest) {
 		  'error code when send is called b4 open')
 	}
 
-	open("GET", '/echo',0);
+	open("GET", '/echo',1);
 
 	onreadystatechange = function() {
 		try{ send();
@@ -1080,6 +1247,152 @@ $SRC{'GET http://foo.com/scripts'}=
 }
 	
 
+#----------------------------------------------------------------#
+use tests 14; # abort
+
+defined $m->eval(<<'EOT23') or die;
+!function(){
+	with(new XMLHttpRequest){
+		var abort_on, rh = '', buffalo = ''
+		onreadystatechange=function(){
+			buffalo+=readyState
+			abort_on == readyState && abort()
+			readyState > 1 ? rh = getAllResponseHeaders() :-0
+		},
+
+		abort_on = 1
+		open('GET','http://foo.com/eoeoeoeoeo',1)
+		is(
+		  readyState,XMLHttpRequest.UNSENT,
+		 'readyState after abort during open'
+		)
+		is(buffalo, '1', 'abort does not trigger orsc during open')
+		is(rh, '', 'no response data after abort during open')
+
+		abort_on = -1, buffalo = ''
+		open('GET','http://foo.com/eoeoeoeoeo',1)
+		abort_on = 1
+		send(null),
+		is(
+		  readyState,XMLHttpRequest.UNSENT,
+		 'readyState after abort during send when only OPENED'
+		)
+		is(buffalo, '114', 'abort triggers orsc when state is 1.5')
+		is(rh, '', 'no response data after abort in state 1.5')
+
+		abort_on = 2, buffalo = ''
+		open('GET','http://foo.com/eoeoeoeoeo',1)
+		send(null),
+		is(
+		  readyState,XMLHttpRequest.UNSENT,
+		 'readyState after abort when state is 2'
+		)
+		is(buffalo, '1124', 'abort triggers orsc when state is 2')
+		is(rh, '', 'no response data after abort in state 2')
+
+		abort_on = 3, buffalo = ''
+		open('GET','http://foo.com/eoeoeoeoeo',1)
+		send(null),
+		is(
+		  readyState,XMLHttpRequest.UNSENT,
+		 'readyState after abort when state is 3'
+		)
+		is(buffalo, '11234', 'abort triggers orsc when state is 3')
+		is(rh, '', 'no response data after abort in state 3')
+
+		abort_on = -1
+		open('GET','http://foo.com/eoeoeoeoeo',1)
+		send(null),
+		buffalo = '',
+		abort()
+		is(
+		  readyState,XMLHttpRequest.UNSENT,
+		 'readyState after abort when state is 4'
+		)
+		is(buffalo, '', 'abort triggers no orsc when state is 4')
+	}
+}()
+EOT23
+
+#----------------------------------------------------------------#
+use tests 6; # text request encodings
+
+defined $m->eval(<<'EOT24') or die;
+	with(new XMLHttpRequest)
+	 open('POST','http://foo.com/echo',0),
+	 send('ṣṃọẉ'),
+	 ok(
+	   /á¹£á¹á»áº/.test(responseText),
+	  'encoding of text request'
+	 ),
+	 ok(
+	   /^Content-Type: *text\/plain; *charset=utf-8[\r\n]/mi
+	    .test(responseText),
+	  'content-type header in the request'
+	 ),
+	 open('POST','http://foo.com/echo',0),
+	 setRequestHeader('content-type','text/vanilla'),
+	 send('ṣṃọẉ'),
+	 ok(
+	   /á¹£á¹á»áº/.test(responseText),
+	  'encoding of text request with explicit content-type'
+	 ),
+	 ok(
+	   /^Content-Type: *text\/vanilla; *charset=utf-8[\r\n]/mi
+	    .test(responseText),
+	  'content-type header specified by the user gets a charset added'
+	 ),
+	 open('POST','http://foo.com/echo',0),
+	 setRequestHeader(
+	  'content-type',
+	  'text/vanilla; charset=iso-8859-2'
+	 ),
+	 send('Dvořák'),
+	 ok(
+	   /Dvoøák/.test(responseText),
+	  'encoding of text request with explicit charset'
+	 ),
+	 ok(
+	   /^Content-Type: *text\/vanilla; *charset=iso-8859-2[\r\n]/mi
+	    .test(responseText),
+	  'charset from setRequestHeader is left untouched'
+	 )
+EOT24
+
+#----------------------------------------------------------------#
+use tests 4; # document requests
+
+defined $m->eval(<<'EOT25') or die;
+	with(new XMLHttpRequest)
+	 open('GET','http://foo.com/xmlexample',0),
+	 send(),
+	 doc = responseXML,
+	 open('POST','http://foo.com/echo',0),
+	 send(doc),
+	 ok(
+	   /<root>\s*<item1\b/.test(responseText),
+	  'XML docs are serialised'
+	 ) || diag(responseText),
+	 ok(
+	   /^Content-Type: *application\/xml; *charset=utf-8[\r\n]/mi
+	    .test(responseText),
+	  'content-type header in the xml request'
+	 ),
+	/* ~~~ I’d like to test different HTML charsets, but HTML::DOM
+	       doesn’t expose the appropriate attributes yet. */
+	 document.innerHTML = "<title>smow</title><p>ctelp",
+	 open('POST','http://foo.com/echo',0),
+	 send(document),
+	 ok(
+	   /<title>smow<\/title>[^]*<p>ctelp/i.test(responseText),
+	  'HTML docs are cerealised'
+	 ) || diag (responseText),
+	 ok(
+	   /^Content-Type: *text\/html\b/mi
+	    .test(responseText),
+	  'content-type header for html request'
+	 )
+EOT25
 
 __END__
 	

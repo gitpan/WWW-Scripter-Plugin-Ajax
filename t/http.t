@@ -16,7 +16,7 @@ my $m = new WWW::Scripter;
 $m->use_plugin('Ajax'); # Load this before starting the server, in
                         # case it dies.
 
-open my $server, '-|', $^X, catfile dirname($0), 'http-test-server'
+eval {open $server, '-|', $^X, catfile dirname($0), 'http-test-server'}
  or ++$skip;
 chomp($port = <$server>);
 $port or ++$skip;
