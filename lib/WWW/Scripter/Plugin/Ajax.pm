@@ -7,7 +7,7 @@ use Scalar::Util 'weaken';
 
 use warnings; no warnings 'utf8';
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 sub init {
 	my($pack,$mech) = (shift,shift);
@@ -277,7 +277,7 @@ sub send{
 			  . qq ';charset=$default_charset'
 		}
 		elsif(my $enc = find_encoding $charset) {
-			content $request $enc->encode($data);
+			content $request $enc->encode("$data");
 		}
 		else {
 			content_type $request
@@ -285,6 +285,7 @@ sub send{
 			  . ";charset=$default_charset";
 			content $request encode $default_charset, $data;
 		}
+		$request->header('Content-Length' => length($request->content())) ;
 	}
 
 	my $async = $self->[async];
@@ -573,7 +574,7 @@ WWW::Scripter::Plugin::Ajax - WWW::Scripter plugin that provides the XMLHttpRequ
 
 =head1 VERSION
 
-Version 0.06 (alpha)
+Version 0.07 (alpha)
 
 =head1 SYNOPSIS
 
@@ -719,6 +720,10 @@ Copyright (C) 2008-10 Father Chrysostomos
 
 This program is free software; you may redistribute it and/or modify
 it under the same terms as perl.
+
+=head1 ACKNOWLEDGEMENTS
+
+Erwan Mas provided a bug fix.
 
 =head1 SEE ALSO
 

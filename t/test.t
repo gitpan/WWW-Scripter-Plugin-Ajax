@@ -102,7 +102,7 @@ $m->get('http://foo.com/inline.html');
 
 
 #----------------------------------------------------------------#
-use tests 36; # basic request, setRequestHeader, and responseText
+use tests 37; # basic request, setRequestHeader, and responseText
 
 defined $m->eval(<<'EOT2') or die;
 	
@@ -148,6 +148,8 @@ defined $m->eval(<<'EOT2') or die;
 			'setRequestHeader ignores Connection header'),
 		ok(!responseText.match(/content-length: 2/i),
 			'setRequestHeader ignores Content-Length'),
+		ok(responseText.match(/^Content-Length: 5$/m),
+			'send adds its own Content-Length'),
 		ok(!responseText.match(/content-transfer-encoding/i),
 		  'setRequestHeader ignores Content-Transfer-Encoding'),
 		ok(!responseText.match(/date/i),
@@ -1315,7 +1317,7 @@ defined $m->eval(<<'EOT23') or die;
 EOT23
 
 #----------------------------------------------------------------#
-use tests 6; # text request encodings
+use tests 7; # text request encodings
 
 defined $m->eval(<<'EOT24') or die;
 	with(new XMLHttpRequest)
@@ -1356,6 +1358,20 @@ defined $m->eval(<<'EOT24') or die;
 	   /^Content-Type: *text\/vanilla; *charset=iso-8859-2[\r\n]/mi
 	    .test(responseText),
 	  'charset from setRequestHeader is left untouched'
+	 ),
+	 // Encode 2.39 and earlier have a bug with find_encoding("UTF-8").
+	 // It sometimes crashes when passed a reference, and returns the
+	 // empty string at other times. find_encoding is only used when
+	 // the charset is set explicitly.
+	 open('POST','http://foo.com/echo',0),
+	 setRequestHeader(
+	  'content-type',
+	  'text/vanilla; charset=UTF-8'
+	 ),
+	 send('Dvořák'),
+	 ok(
+	   /Dvo\xc5\x99\xc3\xa1k/.test(responseText),
+	  'encoding of text request with explicit UTF-8 charset'
 	 )
 EOT24
 

@@ -5,6 +5,14 @@ Plugin for WWW::Scripter that provides the XMLHttpRequest object.
 
 RECENT CHANGES
 
+0.07
+----
+• send()  now sets the  Content-Length  header  for  a  POST  request.
+  Thanks to Erwan Mas for fixing this.
+• send(data)  now actually sends the data when the  Content-Type  has
+  been set explicitly with an  encoding.  Thanks  to  Erwan  Mas  for
+  finding this.
+
 0.06
 ----
 • perl 5.8.4 and lower are no longer supported.
@@ -27,13 +35,6 @@ RECENT CHANGES
 0.05
 ----
 Fixed to work with LWP 5.833
-
-0.04
-----
-Fixed a really nasty bug:  Sending any data via the send() method via
-HTTP would tickle an incompatibility with  LWP/Protocol/http.pm  that
-would result in an  LWP-generated 500 error.  Thanks to Steven Nikkel
-for reporting the error.
 
 
 INSTALLATION
