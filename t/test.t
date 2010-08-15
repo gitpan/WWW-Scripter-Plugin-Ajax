@@ -1410,6 +1410,40 @@ defined $m->eval(<<'EOT25') or die;
 	 )
 EOT25
 
+#----------------------------------------------------------------#
+use tests 1; # file: requests with non-ASCII char escapes
+
+# This tests a workaround for a perl bug affecting -e (which
+# LWP::Protocol::file uses): The UTF8 flags is completely ignored and the
+# internal bytes are used.
+
+SKIP: {
+ use File::Temp 'tempdir';
+ use File'Spec'Functions 'catfile';
+
+ my $tempdir = tempdir uc cleanup => 1;
+ utf8'downgrade my $filename = "\342\200\231"; # ’
+ open my $fileh, ">", catfile $tempdir, $filename
+  or  skip "Primitive file system? ($!)", 1;
+ print $fileh 'psare';
+ close $fileh or diag("Cannot close file in $tempdir: $!"),fail,last;
+
+ my $diruri = new_abs URI'file $tempdir;
+
+ $m->get('file:///stuff');
+ require LWP::Protocol::file;
+ my $impl = LWP'Protocol'implementor('file', 'LWP::Protocol::file');
+ defined $m->eval(<<" EOT26") or die;
+  // Here’s an apostrophe to make sure this is ‘UTF8’.
+  with(new XMLHttpRequest)
+   open('GET','$diruri/%E2%80%99',0),
+   send(),
+   is(responseText, 'psare', 'file URLs are not mangled by -e')
+    || diag(status + ' ' + statusText)
+ EOT26
+ LWP'Protocol'implementor(file => $impl);
+}
+
 __END__
 	
 

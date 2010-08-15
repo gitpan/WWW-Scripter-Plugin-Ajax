@@ -7,7 +7,7 @@ use Scalar::Util 'weaken';
 
 use warnings; no warnings 'utf8';
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 sub init {
 	my($pack,$mech) = (shift,shift);
@@ -148,8 +148,22 @@ sub open{
 		s/^(?:delete|head|options|(?:ge|p(?:os|u))t)\z/uc/ie;
 	}	
 
+	# Work around a perl bug. See the comments in _dg_url below.
+	_dg_url($$self[url]);
+	_dg_url(my $base = $self->[mech]->base);
+
 	$self->[url] = my $url = new_abs URI $self->[url],
-			$self->[mech]->base;
+			$base;
+	# Unfortunately, sometimes new_abs turns on utf8-ness again.
+	if(utf8'is_utf8("$self->[url]")) {
+		# If a newer version of URI changes its internals, this
+		# will die. Hopefully the bug will be gone by then and we
+		# can just ignore the error. (If not, tests will fail, so
+		# I’ll update it.)
+		local* @;
+		eval { utf8'downgrade ${$$self[url]} }
+	}
+
 	_check_url($url, $self->[mech]->uri);
 	$url->fragment(undef); # ~~~ Shouldn’t WWW::Scripter be doing this
 
@@ -184,6 +198,18 @@ sub open{
 	$self->[state]=1;
 	$self->_trigger_orsc;
 	return;
+}
+
+sub _dg_url { # downgrade URL in place
+	# Work around a bug in perl. -e ignores the UTF-8 flag and uses the
+	# internal byte representation of the string, which causes file
+	# requests to fail.
+	utf8'is_utf8($_[0])
+	 and
+	  $_[0] =~ /[^\0-\xff]/
+	   && ($_[0] = uri_escape_utf8 $_[0], '^\x00-\x7f'),
+	  utf8'downgrade $_[0];
+
 }
 
 sub _check_url { # checks protocol and same-originness
@@ -574,7 +600,7 @@ WWW::Scripter::Plugin::Ajax - WWW::Scripter plugin that provides the XMLHttpRequ
 
 =head1 VERSION
 
-Version 0.07 (alpha)
+Version 0.08 (alpha)
 
 =head1 SYNOPSIS
 
