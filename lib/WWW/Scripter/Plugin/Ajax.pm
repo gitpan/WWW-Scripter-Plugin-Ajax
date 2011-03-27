@@ -7,7 +7,7 @@ use Scalar::Util 'weaken';
 
 use warnings; no warnings 'utf8';
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 sub init {
 	my($pack,$mech) = (shift,shift);
@@ -405,12 +405,12 @@ sub abort { # ~~~ This must needs slay the other process once we have
 	return
 }
 
-sub getAllResponseHeaders { # ~~~ is the format correct?
+sub getAllResponseHeaders {
 	no warnings 'uninitialized';
 	$_[0][state] <= OPENED
 	 and die new HTML'DOM'Exception INVALID_STATE_ERR,
 	  "getAllResponseHeaders only works after calls to send()";
-	(shift->[res]||return '')->headers->as_string
+	(shift->[res]||return '')->headers->as_string("\r\n");
 }
 
 sub getResponseHeader {
@@ -600,7 +600,7 @@ WWW::Scripter::Plugin::Ajax - WWW::Scripter plugin that provides the XMLHttpRequ
 
 =head1 VERSION
 
-Version 0.08 (alpha)
+Version 0.09 (alpha)
 
 =head1 SYNOPSIS
 
@@ -719,10 +719,6 @@ XML::DOM::Lite is quite lenient toward badly-formed XML, so the
 C<responseXML> property returns something useful even in cases when it
 should be null.
 
-The C<send> method does not yet accept a Document object as its argument.
-(Well, it does, but it stringifies it to '[object Document]' instead of
-serialising it as XML.)
-
 The SECURITY_ERR, NETWORK_ERR and ABORT_ERR constants are not available
 yet, as I don't know where to put them.
 
@@ -741,7 +737,7 @@ unfortunately the standard so I can't do anything about it.
 
 =head1 AUTHOR & COPYRIGHT
 
-Copyright (C) 2008-10 Father Chrysostomos
+Copyright (C) 2008-11 Father Chrysostomos
 <C<< ['sprout', ['org', 'cpan'].reverse().join('.')].join('@') >>E<gt>
 
 This program is free software; you may redistribute it and/or modify

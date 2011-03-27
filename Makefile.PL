@@ -2,6 +2,19 @@
 
 BEGIN { require 5.008005; } # utf8'encode that stringifies
 use ExtUtils::MakeMaker;
+
+my %lwp_prq = (
+        HTTP::Cookies                   => 5.833, # non-clobbering
+                                                  # add_cookie_header
+	HTTP::Headers                   => 1.64, # repeated headers
+        HTTP::Headers::Util             => 0,
+        HTTP::Request                   => 0,
+	LWP::Protocol                   => 0,
+# for testing:
+	HTTP'Daemon                        =>  0,
+	HTTP::Response                 => 0,
+);
+
 %prq = (
         constant                        => 1.03, # multip. const. @ 1ce
         constant::lexical               => 0,
@@ -9,12 +22,6 @@ use ExtUtils::MakeMaker;
         HTML::DOM::Event                => 0,
 	HTML::DOM::Exception            => 0,
         HTML::DOM::Interface            => 0,
-        HTTP::Cookies                   => 5.833, # non-clobbering
-                                                  # add_cookie_header
-	HTTP::Headers                   => 1.64, # repeated headers
-        HTTP::Headers::Util             => 0,
-        HTTP::Request                   => 0,
-	LWP::Protocol                   => 0,
         Scalar::Util                    => 1.09,
         URI                             => 1, # new_abs
 	URI::Escape                     => 0,
@@ -24,8 +31,6 @@ use ExtUtils::MakeMaker;
 # for testing:
 	File'Spec'Functions                =>  0,
 	HTML::DOM::Exception               => .013, # code
-	HTTP'Daemon                        =>  0,
-	HTTP::Response                 => 0,
 	JE                             =>  .041, # bind_class bug with
 	lib                            => 0,     # array-like proxies
 	strict => 0,
@@ -42,6 +47,20 @@ eval{
  $w->eval("1");
 } and !exists $INC{"JE.pm"} and delete $prq{JE};
 
+my $need_lwp5837;
+if($] < 5.0080071) {
+ while(my($m,$v) = each %lwp_prq) {
+  if(!eval{"require $m"} || !eval{$m->VERSION($v)}) {
+   ++$need_lwp5837; last;
+  }
+ }
+}
+if($need_lwp5837) {
+ $prq{'Bundle::LWP5_837'} = 0;
+}
+else {
+ %prq = (%prq, %lwp_prq);
+}
 
 WriteMakefile(
     NAME                => 'WWW::Scripter::Plugin::Ajax',

@@ -1,9 +1,14 @@
-WWW::Scripter::Plugin::Ajax, version 0.08 (alpha)
+WWW::Scripter::Plugin::Ajax, version 0.09 (alpha)
 
 Plugin for WWW::Scripter that provides the XMLHttpRequest object.
 
 
 RECENT CHANGES
+
+0.09
+----
+getAllResponseHeaders now returns the headers with CR LF line endings
+instead of just LF.
 
 0.08
 ----
@@ -17,25 +22,6 @@ range.
 • send(data)  now actually sends the data when the  Content-Type  has
   been set explicitly with an  encoding.  Thanks  to  Erwan  Mas  for
   finding this.
-
-0.06
-----
-• perl 5.8.4 and lower are no longer supported.
-• LWP errors are now turned into NETWORK_ERRs.
-• Encoding detection has been improved.
-• The  open  method now dies if the  name  argument contains a  colon.
-• Names and passwords are now sent in UTF-8 encoding.
-• The body of a request is now encoded in UTF-8 if it is text,  or in
-  whatever encoding is specified via setRequestHeader.
-• Document objects passed  to  send()  are  now  serialised  properly.
-• send no longer has a return value.
-• onreadystatechange is no longer triggered multiple times by  send()
-  for synchronous requests.
-• The abort method now actually aborts when called from a  readystate-
-  change handler.
-• The  abort  method now switches the state to  DONE  and  calls  the
-  readystatechange  handlers  before  aborting  if  the  send  method
-  is active.
 
 
 INSTALLATION

@@ -508,13 +508,28 @@ EOT7
 
 
 #----------------------------------------------------------------#
-use tests 6; # get(All)ResponseHeader(s)
+use tests 8; # get(All)ResponseHeader(s)
 defined $m->eval(<<'EOT8') or die;
 	with(request) {
+		abort()
+		try{ getAllResponseHeaders();
+		     fail("getAllResponseHeaders before open")
+		     fail("getAllResponseHeaders before open") }
+		catch(_) {
+		 ok(
+		  _ instanceof DOMException,
+		  "getAllResponseHeaders error b4 open isa DOMException"
+		 )
+		 is(
+		   _.code, DOMException.INVALID_STATE_ERR,
+		  'error code after getAllResponseHeaders b4 open'
+		 )
+		}
+
 		open('GET','http://foo.com/echo',0),
 		send(null),
 		ok(getAllResponseHeaders().match(
-		 /^Content-Type: text\/plain; charset=iso-8859-1\r?\n/
+		 /^Content-Type: text\/plain; charset=iso-8859-1\r\n/
 		), "getAllResponseHeaders")||diag(getAllResponseHeaders()),
 		ok(
 		 /^text\/plain;/.test(getResponseHeader('Content-Type')),

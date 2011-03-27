@@ -1,5 +1,9 @@
 Revision history for WWW::Scripter::Plugin::Ajax
 
+0.09    27 March, 2011
+        getAllResponseHeaders now returns the headers with CR LF line
+        endings instead of just LF.
+
 0.08    15 August, 2010
         file:  URLs now work when they contain  %-escapes  beyond the
         ASCII range.
